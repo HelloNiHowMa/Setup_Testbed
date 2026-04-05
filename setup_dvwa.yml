@@ -33,14 +33,13 @@
         name: "{{ pkg_list[ansible_os_family] }}"
         state: present
 
-    - name: 2. 啟動 Apache 與 MariaDB
+    - name: 2. 啟動 Web、PHP 與 MariaDB 服務
       ansible.builtin.service:
         name: "{{ item }}"
         state: started
         enabled: yes
-      loop:
-        - "{{ apache_svc[ansible_os_family] }}"
-        - mariadb
+      # 💡 關鍵修正：直接用 Jinja2 的 + 號，把兩個陣列合併成一個扁平清單
+      loop: "{{ apache_svc[ansible_os_family] + ['mariadb'] }}"
 
     - name: 3. 建立資料庫與使用者
       block:

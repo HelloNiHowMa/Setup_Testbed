@@ -1,6 +1,6 @@
 ---
 - name: Kali Linux 實戰環境建置與個人化設定 (無 Vagrant 帳號版)
-  hosts: kali
+  hosts: Attacker
   # 💡 移除全域的 become: yes，預設以連線的帳號 (kali) 執行
 
   tasks:
@@ -13,7 +13,7 @@
         state: present
         # 💡 關鍵改變：用 lookup('file', ...) 讀取「控制機」本機的公鑰檔案
         # 假設你的公鑰叫 lab_key.pub 且放在跟 playbook 同一個資料夾下：
-        key: "{{ lookup('file', 'lab_key.pub') }}"
+        key: "{{ lookup('file', 'id_rsa.pub') }}"
         
         # (如果你是用 ssh-keygen 預設產生的，路徑會是 '~/.ssh/id_rsa.pub')
 

@@ -1,98 +1,46 @@
 ---
-- name: 在舊版 Ubuntu (12.04 / 14.04) 部署原生 bWAPP 環境
+- name: 在極度老舊系統使用 Raw 模組暴力部署 bWAPP
   hosts: ubuntu12, ubuntu14
   become: yes
-
-  vars:
-    # 💡 魔法變數：自動判斷作業系統版本，決定網頁根目錄位置
-    web_root: "{{ '/var/www/html' if ansible_distribution_version is version('14.04', '>=') else '/var/www' }}"
-    
-    # 老舊 MySQL 剛裝好時，root 預設是沒有密碼的
-    mysql_root_password: ""
+  # 💡 絕對關鍵：關閉收集機器資訊，禁止 Ansible 去探測環境，不然一開場就會觸發 Python 錯誤！
+  gather_facts: no  
 
   tasks:
-    # ==========================================
-    # 第一階段：修復環境與安裝套件
-    # ==========================================
-    - name: 1. 修復 EOL 系統的 APT 來源 (指向 old-releases)
-      ansible.builtin.replace:
-        path: /etc/apt/sources.list
-        regexp: '(archive|security)\.ubuntu\.com'
-        replace: 'old-releases.ubuntu.com'
+    - name: 執行全自動 Shell 腳本 (繞過 Python 依賴限制)
+      ansible.builtin.raw: |
+        # 1. 修復 APT 來源 (指向 old-releases)
+        sed -i 's/archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list
+        sed -i 's/security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list
+        apt-get update
 
-    - name: 2. 更新 APT 快取
-      ansible.builtin.apt:
-        update_cache: yes
-        cache_valid_time: 3600
+        # 2. 安裝原生 LAMP 套件
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get install -y apache2 mysql-server php5 php5-mysql unzip wget
 
-    - name: 3. 安裝原生 LAMP 套件 (自動取得 PHP 5.x 版本)
-      ansible.builtin.apt:
-        name: 
-          - apache2
-          - mysql-server
-          - php5
-          - php5-mysql
-          - unzip
-          - python-mysqldb  # 💡 這是讓 Ansible 控制舊版 MySQL 必備的 Python 2 函式庫
-        state: present
+        # 3. 自動判斷網頁根目錄 (Ubuntu 12 vs 14)
+        if [ -d "/var/www/html" ]; then
+            WEB_ROOT="/var/www/html"
+        else
+            WEB_ROOT="/var/www"
+        fi
 
-    # ==========================================
-    # 第二階段：資料庫設定
-    # ==========================================
-    - name: 4. 啟動 Apache 與 MySQL 服務
-      ansible.builtin.service:
-        name: "{{ item }}"
-        state: started
-        enabled: yes
-      loop:
-        - apache2
-        - mysql
+        # 4. 下載與解壓 bWAPP (如果還沒下載過的話)
+        if [ ! -d "$WEB_ROOT/bWAPP" ]; then
+            wget -q --no-check-certificate https://sourceforge.net/projects/bwapp/files/bWAPP/bWAPPv2.2/bWAPP_latest.zip/download -O /tmp/bwapp.zip
+            unzip -q -o /tmp/bwapp.zip -d $WEB_ROOT/
+        fi
 
-    - name: 5. 建立 bWAPP 資料庫與使用者
-      block:
-        - community.mysql.mysql_db:
-            name: bWAPP
-            login_user: root
-            login_password: "{{ mysql_root_password }}"
-        - community.mysql.mysql_user:
-            name: bwapp_user
-            password: bwapp_password
-            priv: 'bWAPP.*:ALL'
-            host: localhost
-            login_user: root
-            login_password: "{{ mysql_root_password }}"
+        # 5. 配置資料庫連線與權限
+        chown -R www-data:www-data $WEB_ROOT/bWAPP
+        chmod -R 777 $WEB_ROOT/bWAPP
+        sed -i 's/$db_username = "root";/$db_username = "bwapp_user";/g' $WEB_ROOT/bWAPP/admin/settings.php
+        sed -i 's/$db_password = "bug";/$db_password = "bwapp_password";/g' $WEB_ROOT/bWAPP/admin/settings.php
 
-    # ==========================================
-    # 第三階段：程式碼部署與權限
-    # ==========================================
-    - name: 6. 在控制機下載 bWAPP 壓縮檔 (避開舊系統的 SSL 錯誤)
-      ansible.builtin.get_url:
-        url: 'https://sourceforge.net/projects/bwapp/files/bWAPP/bWAPPv2.2/bWAPP_latest.zip/download'
-        dest: /tmp/bwapp_latest.zip
-      delegate_to: localhost  # 💡 關鍵：這步只在 ansible_control 本地執行
-      run_once: true          # 💡 確保只下載一次，不用兩台靶機都重複下載
-
-    - name: 7. 解壓縮並派發到靶機的正確網頁目錄
-      ansible.builtin.unarchive:
-        src: /tmp/bwapp_latest.zip
-        dest: "{{ web_root }}/"
-        # 💡 remote_src=no 代表將控制機的檔案傳過去解壓縮
-        creates: "{{ web_root }}/bWAPP/admin/settings.php"
-
-    - name: 8. 配置 bWAPP 資料庫連線設定檔
-      ansible.builtin.replace:
-        path: "{{ web_root }}/bWAPP/admin/settings.php"
-        regexp: "{{ item.regexp }}"
-        replace: "{{ item.replace }}"
-      loop:
-        - { regexp: '^\$db_username = "root";', replace: '$db_username = "bwapp_user";' }
-        - { regexp: '^\$db_password = "bug";', replace: '$db_password = "bwapp_password";' }
-
-    - name: 9. 調整 bWAPP 目錄擁有者與權限
-      ansible.builtin.file:
-        path: "{{ web_root }}/bWAPP"
-        owner: www-data
-        group: www-data
-        mode: '0777'
-        state: directory
-        recurse: yes
+        # 6. 建立資料庫與使用者
+        service mysql start
+        mysql -u root -e "CREATE DATABASE IF NOT EXISTS bWAPP;"
+        mysql -u root -e "GRANT ALL PRIVILEGES ON bWAPP.* TO 'bwapp_user'@'localhost' IDENTIFIED BY 'bwapp_password';"
+        mysql -u root -e "FLUSH PRIVILEGES;"
+        
+        # 7. 重啟網頁伺服器
+        service apache2 restart

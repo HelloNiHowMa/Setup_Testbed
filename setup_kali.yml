@@ -26,6 +26,7 @@
         name:
           - seclists
           - feroxbuster
+          - rlwrap
         update_cache: yes
         state: present
 

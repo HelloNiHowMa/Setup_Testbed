@@ -17,6 +17,17 @@
       RedHat: /var/lib/mysql/mysql.sock
 
   tasks:
+    - name: 0a. 更新 APT 套件庫快取 (僅限 Debian 體系)
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600  # 💡 講師小技巧：如果快取在 1 小時內更新過，就跳過，大幅節省時間！
+      when: ansible_os_family == "Debian"
+
+    - name: 0b. 更新 DNF 套件庫快取 (僅限 RedHat 體系)
+      ansible.builtin.dnf:
+        update_cache: yes
+      when: ansible_os_family == "RedHat"
+    
     - name: 1. 安裝環境所需套件 (自動辨識系統)
       ansible.builtin.package: # 💡 使用 package 模組會自動調用 apt 或 dnf
         name: "{{ pkg_list[ansible_os_family] }}"

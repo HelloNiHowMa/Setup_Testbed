@@ -10,8 +10,8 @@
       Debian: [apache2, mariadb-server, php, php-mysql, php-gd, git, python3-pymysql]
       RedHat: [httpd, mariadb-server, php, php-mysqlnd, php-gd, git, python3-PyMySQL]
     apache_svc:
-      Debian: apache2
-      RedHat: httpd
+      Debian: [apache2]
+      RedHat: [httpd, php-fpm]
     mysql_socket:
       Debian: /var/run/mysqld/mysqld.sock
       RedHat: /var/lib/mysql/mysql.sock
@@ -126,7 +126,8 @@
         state: enabled
         immediate: yes
 
-    - name: 8. 重新啟動 Apache
+   - name: 8. 重新啟動 Web 與 PHP 服務
       ansible.builtin.service:
-        name: "{{ apache_svc[ansible_os_family] }}"
+        name: "{{ item }}"
         state: restarted
+      loop: "{{ apache_svc[ansible_os_family] }}"

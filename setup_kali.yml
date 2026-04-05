@@ -45,6 +45,7 @@
         path: ~/.vimrc  # 💡 直接用 ~ 代表當前使用者的家目錄
         create: yes
         mode: '0644'
+        marker: "\" {mark} ANSIBLE MANAGED BLOCK"
         block: |
           " 取消 vi/vim 滑鼠點選功能
           set mouse=

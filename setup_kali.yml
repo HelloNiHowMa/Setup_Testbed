@@ -7,18 +7,17 @@
     # ==========================================
     # 系統層級任務 (Root 權限執行)
     # ==========================================
-    - name: 1, 3, 6, 7a. 更新 APT 套件庫並安裝必備軟體
+    - name: 更新 APT 套件庫並安裝必備軟體
       ansible.builtin.apt:
         name:
           - seclists
           - feroxbuster
-          - wordlists
         update_cache: yes
         state: present
       # 💡 說明：在 Kali 裡，seclists, feroxbuster 和 rockyou 的壓縮檔
       # 都已經直接包在官方 repo 裡，用 apt 裝是最穩定的。
 
-    - name: 7b. 解壓縮 rockyou.txt (若尚未解壓縮)
+    - name: 解壓縮 rockyou.txt (若尚未解壓縮)
       ansible.builtin.command:
         cmd: gunzip -k /usr/share/wordlists/rockyou.txt.gz
       args:

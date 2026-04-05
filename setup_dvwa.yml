@@ -7,7 +7,7 @@
   vars:
     # 根據作業系統家族定義不同的變數
     pkg_list:
-      Debian: [apache2, mariadb-server, php, php-mysqli, php-gd, git, python3-pymysql]
+      Debian: [apache2, mariadb-server, php, php-mysql, php-gd, git, python3-pymysql]
       RedHat: [httpd, mariadb-server, php, php-mysqlnd, php-gd, git, python3-PyMySQL]
     apache_svc:
       Debian: apache2

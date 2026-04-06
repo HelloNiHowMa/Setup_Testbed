@@ -8,13 +8,17 @@
     # ==========================================
     # 第一步：讓控制機「代勞」下載 (全自動關鍵)
     # ==========================================
-    - name: 讓控制機先下載 bWAPP (避開舊系統 SSL 問題)
+    - name: 讓控制機先下載 bWAPP (使用 SourceForge 真正的直連網址)
       ansible.builtin.get_url:
-        url: 'https://sourceforge.net/projects/bwapp/files/bWAPP/bWAPPv2.2/bWAPP_latest.zip/download'
-        dest: /vagrant/bWAPP_latest.zip # 💡 存到共享資料夾
+        # 💡 修正：拿掉最後的 /download，並將主網域改為 downloads.sourceforge.net/project/
+        url: 'https://downloads.sourceforge.net/project/bwapp/bWAPP/bWAPPv2.2/bWAPP_latest.zip'
+        dest: /vagrant/bWAPP_latest.zip 
         mode: '0644'
-      delegate_to: localhost # 💡 強制在 ansible_control 本地執行
-      run_once: true         # 💡 兩台機器只需一台執行下載即可
+        # 💡 技巧：偽裝成一般瀏覽器，避免被防火牆擋下
+        headers:
+          User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+      delegate_to: localhost 
+      run_once: true
 
     # ==========================================
     # 第二步：原本的暴力 Shell 腳本

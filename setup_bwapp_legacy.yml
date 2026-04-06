@@ -1,5 +1,19 @@
 ---
-  - name: 執行全自動 Shell 腳本 
+- name: 在舊版 Ubuntu 執行全自動部署 
+  hosts: ubuntu12, ubuntu14
+  become: yes
+  gather_facts: no
+
+  tasks:
+    - name: 讓控制機從 GitHub 鏡像站下載 bWAPP
+      ansible.builtin.get_url:
+        url: 'https://github.com/raesene/bWAPP/archive/refs/heads/master.zip'
+        dest: /vagrant/bWAPP_latest.zip
+        mode: '0644'
+      delegate_to: localhost 
+      run_once: true         
+
+    - name: 執行全自動 Shell 腳本 
       ansible.builtin.raw: |
         # 1. 取得系統代號 (precise 或 trusty)
         CODENAME=$(lsb_release -cs)

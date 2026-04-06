@@ -13,7 +13,7 @@
       delegate_to: localhost 
       run_once: true         
 
-    - name: 執行全自動 Shell 腳本 (修正 GitHub 目錄結構版)
+    - name: 執行全自動 Shell 腳本 (終極萬用帳密替換版)
       ansible.builtin.raw: |
         CODENAME=$(lsb_release -cs)
         echo "deb http://old-releases.ubuntu.com/ubuntu/ $CODENAME main restricted universe multiverse" > /etc/apt/sources.list
@@ -28,18 +28,17 @@
         
         if [ -d "/var/www/html" ]; then WEB_ROOT="/var/www/html"; else WEB_ROOT="/var/www"; fi
         
-        # 💡 修正 1：先強制刪除上一版錯誤的目錄結構，確保乾淨重來
         rm -rf $WEB_ROOT/bWAPP
         
-        # 💡 修正 2：解壓縮後，只把裡面的 app/ 資料夾搬出來變成 bWAPP
         unzip -q -o /vagrant/bWAPP_latest.zip -d /tmp/
         mv /tmp/bWAPP-master/app $WEB_ROOT/bWAPP
         
-        # 💡 修正 3：現在路徑對了，資料庫帳密就能成功寫入 settings.php！
         chown -R www-data:www-data $WEB_ROOT/bWAPP
         chmod -R 777 $WEB_ROOT/bWAPP
-        sed -i 's/$db_username = "root";/$db_username = "bwapp_user";/g' $WEB_ROOT/bWAPP/admin/settings.php
-        sed -i 's/$db_password = "bug";/$db_password = "bwapp_password";/g' $WEB_ROOT/bWAPP/admin/settings.php
+        
+        # 💡 終極修正：使用 .* 無視原本的密碼是什麼，強制寫入 bwapp_password！
+        sed -i 's/$db_username = .*/$db_username = "bwapp_user";/g' $WEB_ROOT/bWAPP/admin/settings.php
+        sed -i 's/$db_password = .*/$db_password = "bwapp_password";/g' $WEB_ROOT/bWAPP/admin/settings.php
         
         service mysql start
         mysql -u root -e "CREATE DATABASE IF NOT EXISTS bWAPP;"

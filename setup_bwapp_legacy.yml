@@ -41,7 +41,13 @@
         sed -i 's/$db_password = .*/$db_password = "bwapp_password";/g' $WEB_ROOT/bWAPP/admin/settings.php
         
         service mysql start
-        mysql -u root -e "CREATE DATABASE IF NOT EXISTS bWAPP;"
+        # 💡 刪除這行，不要幫它建空殼，把建立的工作還給 install.php
+        # mysql -u root -e "CREATE DATABASE IF NOT EXISTS bWAPP;"
+        
+        # 就算資料庫還沒建，也可以先發權限
+        mysql -u root -e "GRANT ALL PRIVILEGES ON bWAPP.* TO 'bwapp_user'@'localhost' IDENTIFIED BY 'bwapp_password';"
+        mysql -u root -e "FLUSH PRIVILEGES;"
+        service apache2 restart
         mysql -u root -e "GRANT ALL PRIVILEGES ON bWAPP.* TO 'bwapp_user'@'localhost' IDENTIFIED BY 'bwapp_password';"
         mysql -u root -e "FLUSH PRIVILEGES;"
         service apache2 restart

@@ -74,7 +74,13 @@
         src: "{{ dvwa_dir }}\\config\\config.inc.php.dist"
         dest: "{{ dvwa_dir }}\\config\\config.inc.php"
         remote_src: yes
-
+        
+    - name: 8.5 設定 DVWA 資料庫帳號為 root (配合 XAMPP 預設值)
+      community.windows.win_lineinfile:
+        path: "{{ dvwa_dir }}\\config\\config.inc.php"
+        regexp: "^\\$_DVWA\\[ 'db_user' \\]"
+        line: "$_DVWA[ 'db_user' ] = 'root';"
+        
     - name: 9. 設定 DVWA 資料庫密碼 (XAMPP 預設 root 密碼為空)
       # 💡 修正：使用 community.windows 擴充包
       community.windows.win_lineinfile:

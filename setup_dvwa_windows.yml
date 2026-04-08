@@ -104,3 +104,14 @@
         regexp: "^\\$_DVWA\\[ 'default_security_level' \\]"
         # 強制將其修改為 'low'
         line: "$_DVWA[ 'default_security_level' ] = 'low';"
+    - name: 12. 啟用 PHP 的 allow_url_include (供 File Inclusion 靶機關卡使用)
+      community.windows.win_lineinfile:
+        path: C:\xampp\php\php.ini
+        # 正規表示式：尋找以 allow_url_include 開頭的設定行 (忽略開頭是分號的註解)
+        regexp: "^allow_url_include\\s*="
+        # 強制替換為 On
+        line: "allow_url_include = On"
+    - name: 13. 重新啟動 Apache 服務以套用 PHP 新設定
+      ansible.windows.win_service:
+        name: Apache2.4
+        state: restarted

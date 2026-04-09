@@ -1,5 +1,5 @@
 ---
-- name: Kali Linux 實戰環境建置與個人化設定 (無 Vagrant 帳號版)
+- name: Kali Linux 實戰環境建置與個人化設定 (非 Vagrant 建立的機器)
   hosts: Attacker
   # 💡 移除全域的 become: yes，預設以連線的帳號 (kali) 執行
 

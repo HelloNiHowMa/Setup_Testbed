@@ -1,0 +1,20 @@
+---
+- name: 實驗室一鍵優雅關機腳本
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: 1. 通知 Linux 艦隊關機 (非同步執行，避免 Ansible 卡住等待)
+      ansible.builtin.shell: sleep 2 && shutdown -h now
+      async: 1
+      poll: 0
+      when: ansible_os_family != "Windows"
+      ignore_errors: yes
+
+    - name: 2. 通知 Windows 艦隊關機 (非同步執行)
+      ansible.windows.win_shell: Start-Sleep -Seconds 2; Stop-Computer -Force
+      async: 1
+      poll: 0
+      when: ansible_os_family == "Windows"
+      ignore_errors: yes

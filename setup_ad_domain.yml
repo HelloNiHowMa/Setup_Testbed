@@ -8,7 +8,7 @@
   vars:
     domain_name: "cyber.internal"
     # AD 復原模式安全密碼 (需符合 Windows 複雜度要求)
-    safe_mode_password: "SuperSecretPassword123!" 
+    safe_mode_password: "Pa$$w0rd" 
 
   tasks:
     - name: 1. 安裝 AD 網域服務 (AD-Domain-Services)

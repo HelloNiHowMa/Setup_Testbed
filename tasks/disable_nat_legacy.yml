@@ -1,38 +1,26 @@
 ---
 # tasks/disable_nat_legacy.yml
-- name: "[Legacy] 使用 raw 模組設定路由、DNS 並封印 NAT"
+- name: "[Legacy] 使用 raw 模組設定路由、DNS 並封印 NAT (無斷線升級版)"
   ansible.builtin.raw: |
     # 1. 處理私有網路 (10.0.0.x)
     PRI_IFACE=$(ip -4 addr show | grep 'inet 10.0.0.' | awk '{print $NF}')
     if [ ! -z "$PRI_IFACE" ]; then
-      # 避免重複寫入，先檢查是否已有 gateway
-      if ! grep -q "gateway 10.0.0.1" /etc/network/interfaces; then
+      # 檢查是否已存在閘道設定，避免重複寫入
+      if ! grep -q "gateway {{ lab_gateway }}" /etc/network/interfaces; then
         sed -i "/iface $PRI_IFACE inet static/a \    gateway {{ lab_gateway }}\n    dns-nameservers {{ lab_dns }}" /etc/network/interfaces
-        ifdown $PRI_IFACE && ifup $PRI_IFACE
+        
+        # 💡 無中斷動態套用：直接使用 ip route 指令塞入記憶體，不重啟網卡
+        ip route add default via {{ lab_gateway }} 2>/dev/null || true
+        # 💡 強制修改 DNS 解析檔
+        echo "nameserver {{ lab_dns }}" > /etc/resolv.conf
       fi
     fi
-  
-- name: "[Legacy] 使用 raw 模組執行純 Bash 指令 (不依賴 Python)"
-  ansible.builtin.raw: |
-    # 1. 找出 NAT 網卡名稱
-    IFACE=$(ip -4 addr show | grep 'inet 10.0.2.' | awk '{print $NF}')
-    
-    if [ ! -z "$IFACE" ]; then
-      echo ">>> 找到 NAT 網卡: $IFACE"
-      
-      # 2. 備份設定檔
-      cp /etc/network/interfaces /etc/network/interfaces.bak
-      
-      # 3. 使用 sed 直接修改檔案，把包含該網卡的行註解掉
-      sed -i -e "s/^auto $IFACE/#auto $IFACE/g" -e "s/^iface $IFACE/#iface $IFACE/g" /etc/network/interfaces
-      
-      # 4. 物理性關閉網卡 (忽略報錯)
-      ifdown $IFACE 2>/dev/null || true
-      ip link set $IFACE down 2>/dev/null || true
-      
-      echo ">>> 網卡 $IFACE 已成功封印"
-    else
-      echo ">>> 未找到 10.0.2.x 網段的 NAT 網卡"
+
+    # 2. 處理 NAT 網路 (10.0.2.x)
+    NAT_IFACE=$(ip -4 addr show | grep 'inet 10.0.2.' | awk '{print $NF}')
+    if [ ! -z "$NAT_IFACE" ]; then
+      sed -i -e "s/^auto $NAT_IFACE/#auto $NAT_IFACE/g" -e "s/^iface $NAT_IFACE/#iface $NAT_IFACE/g" /etc/network/interfaces
+      ifdown $NAT_IFACE 2>/dev/null || true
+      ip link set $NAT_IFACE down 2>/dev/null || true
     fi
-  register: raw_result
-  changed_when: "'已成功封印' in raw_result.stdout"
+  register: raw_legacy_result

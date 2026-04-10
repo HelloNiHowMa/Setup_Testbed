@@ -14,13 +14,18 @@
 
     - name: 載入 NetworkManager 處理邏輯 (RHEL 系與kali)
       ansible.builtin.include_tasks: tasks/disable_nat_nm.yml
-      when: ansible_os_family == "RedHat" or ansible_distribution == "Kali"
+      when: ansible_os_family == "RedHat"
 
     - name: 載入 Netplan 處理邏輯 (新版 Ubuntu)
       ansible.builtin.include_tasks: tasks/disable_nat_netplan.yml
       when: 
         - ansible_distribution == "Ubuntu"
         - ansible_distribution_major_version | int >= 18
+       # 💡 新增這一段：讓 Kali 走 Debian 傳統邏輯
+    - name: 載入 Legacy 處理邏輯 (Debian 系傳統設定，供 Kali 使用)
+      ansible.builtin.include_tasks: tasks/disable_nat_legacy.yml
+      when: ansible_distribution == "Kali"
+      
 # ==========================================
 # Play 2: 處理活化石艦隊 (嚴禁收集 Facts)
 # ==========================================

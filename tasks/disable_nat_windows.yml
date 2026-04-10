@@ -1,0 +1,15 @@
+---
+# tasks/disable_nat_windows.yml
+- name: "[Windows] 尋找並停用 NAT 網卡"
+  ansible.windows.win_shell: |
+    $natAdapter = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -like "10.0.2.*" }
+    if ($natAdapter) {
+        $ifIndex = $natAdapter.InterfaceIndex
+        Disable-NetAdapter -InterfaceIndex $ifIndex -Confirm:$false
+        Write-Output "Disabled NAT Adapter with Index $ifIndex"
+    } else {
+        Write-Output "No NAT adapter found or already disabled."
+    }
+  register: win_nat_disable
+  changed_when: "'Disabled' in win_nat_disable.stdout"
+  ignore_errors: yes

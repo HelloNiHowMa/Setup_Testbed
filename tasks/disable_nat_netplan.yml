@@ -1,5 +1,37 @@
 ---
 # tasks/disable_nat_netplan.yml
+- name: "[Netplan] 尋找私有網路網卡名稱 (10.0.0.x 網段)"
+  ansible.builtin.shell: |
+    ip -4 addr show | grep 'inet 10.0.0.' | awk '{print $NF}'
+  register: netplan_pri_iface
+  changed_when: false
+
+- name: "[Netplan] 尋找 Netplan 設定檔"
+  ansible.builtin.shell: ls /etc/netplan/*.yaml | head -n 1
+  register: netplan_config_file
+  changed_when: false
+
+- name: "[Netplan] 注入 Gateway 與 DNS 設定"
+  # 使用 replace 在該網卡區塊下插入路由與 DNS
+  ansible.builtin.replace:
+    path: "{{ netplan_config_file.stdout }}"
+    regexp: '({{ netplan_pri_iface.stdout }}:(\s*\n\s*))'
+    replace: |
+      \1routes:
+              - to: default
+                via: 10.0.0.1
+            nameservers:
+              addresses: [1.1.1.1]
+            
+  when: 
+    - netplan_pri_iface.stdout | default('') != ""
+    - netplan_config_file.stdout | default('') != ""
+  register: netplan_route_modify
+
+- name: "[Netplan] 套用設定"
+  ansible.builtin.command: netplan apply
+  when: netplan_route_modify is changed
+
 - name: "[Netplan] 尋找 NAT 網卡名稱 (搜尋 10.0.2.x 網段)"
   ansible.builtin.shell: |
     ip -4 addr show | grep 'inet 10.0.2.' | awk '{print $NF}'

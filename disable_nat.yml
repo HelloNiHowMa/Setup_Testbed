@@ -25,13 +25,11 @@
 # Play 2: 處理活化石艦隊 (嚴禁收集 Facts)
 # ==========================================
 - name: 斷開並封印老古董的 NAT 網卡
-  hosts: bWAPP       # 💡 關鍵：只針對老古董
+  hosts: bWAPP       # 💡 關鍵：只針對老古董群組
   become: yes
-  gather_facts: no   # 💡 終極防禦：絕對不准跑 setup.py
+  gather_facts: no   # 💡 終極防禦：禁止收集 Facts，保護老舊 Python
 
   tasks:
     - name: 載入 Legacy 處理邏輯 (老舊 Ubuntu)
       ansible.builtin.include_tasks: tasks/disable_nat_legacy.yml
-      when: 
-        - ansible_distribution == "Ubuntu"
-        - ansible_distribution_major_version | int < 18
+      # 💡 刪除了 when 判斷！因為能進到這個 Play 的，絕對只有 bWAPP 群組裡的活化石

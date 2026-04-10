@@ -1,5 +1,17 @@
 ---
 # tasks/disable_nat_legacy.yml
+- name: "[Legacy] 使用 raw 模組設定路由、DNS 並封印 NAT"
+  ansible.builtin.raw: |
+    # 1. 處理私有網路 (10.0.0.x)
+    PRI_IFACE=$(ip -4 addr show | grep 'inet 10.0.0.' | awk '{print $NF}')
+    if [ ! -z "$PRI_IFACE" ]; then
+      # 避免重複寫入，先檢查是否已有 gateway
+      if ! grep -q "gateway 10.0.0.1" /etc/network/interfaces; then
+        sed -i "/iface $PRI_IFACE inet static/a \    gateway 10.0.0.1\n    dns-nameservers 1.1.1.1" /etc/network/interfaces
+        ifdown $PRI_IFACE && ifup $PRI_IFACE
+      fi
+    fi
+  
 - name: "[Legacy] 使用 raw 模組執行純 Bash 指令 (不依賴 Python)"
   ansible.builtin.raw: |
     # 1. 找出 NAT 網卡名稱

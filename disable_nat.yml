@@ -12,9 +12,9 @@
       ansible.builtin.include_tasks: tasks/disable_nat_windows.yml
       when: ansible_os_family == "Windows"
 
-    - name: 載入 NetworkManager 處理邏輯 (RHEL 系)
+    - name: 載入 NetworkManager 處理邏輯 (RHEL 系與kali)
       ansible.builtin.include_tasks: tasks/disable_nat_nm.yml
-      when: ansible_os_family == "RedHat"
+      when: ansible_os_family == "RedHat" or ansible_distribution == "Kali"
 
     - name: 載入 Netplan 處理邏輯 (新版 Ubuntu)
       ansible.builtin.include_tasks: tasks/disable_nat_netplan.yml

@@ -1,0 +1,37 @@
+---
+# tasks/disable_nat_legacy.yml
+- name: "[Legacy] 尋找 NAT 網卡名稱 (搜尋 10.0.2.x 網段)"
+  ansible.builtin.shell: |
+    ip -4 addr show | grep 'inet 10.0.2.' | awk '{print $NF}'
+  register: legacy_nat_iface
+  changed_when: false
+
+- name: "[Legacy] 備份 /etc/network/interfaces"
+  ansible.builtin.copy:
+    src: /etc/network/interfaces
+    dest: /etc/network/interfaces.bak
+    remote_src: yes
+  when: legacy_nat_iface.stdout | default('') != ""
+  ignore_errors: yes
+
+- name: "[Legacy] 在 interfaces 中註解掉 NAT 網卡的設定"
+  # 將包含該網卡名稱的行前面加上 # 註解
+  ansible.builtin.replace:
+    path: /etc/network/interfaces
+    regexp: '^(auto {{ legacy_nat_iface.stdout }}|iface {{ legacy_nat_iface.stdout }} .*)$'
+    replace: '#\1'
+  when: legacy_nat_iface.stdout | default('') != ""
+  register: legacy_modify
+  ignore_errors: yes
+
+- name: "[Legacy] 關閉 NAT 網卡 (ifdown)"
+  ansible.builtin.command: "ifdown {{ legacy_nat_iface.stdout }}"
+  when: 
+    - legacy_nat_iface.stdout | default('') != ""
+    - legacy_modify is changed
+  ignore_errors: yes
+
+- name: "[Legacy] 物理性關閉 NAT 網卡 (ip link set down)"
+  ansible.builtin.command: "ip link set {{ legacy_nat_iface.stdout }} down"
+  when: legacy_nat_iface.stdout | default('') != ""
+  ignore_errors: yes

@@ -6,70 +6,47 @@
   register: netplan_pri_iface
   changed_when: false
 
-- name: "[Netplan] 尋找 Netplan 設定檔"
-  ansible.builtin.shell: ls /etc/netplan/*.yaml | head -n 1
-  register: netplan_config_file
-  changed_when: false
-
-- name: "[Netplan] 注入 Gateway 與 DNS 設定"
-  # 使用 replace 在該網卡區塊下插入路由與 DNS
-  ansible.builtin.replace:
-    path: "{{ netplan_config_file.stdout }}"
-    regexp: '({{ netplan_pri_iface.stdout }}:(\s*\n\s*))'
-    replace: |
-      \1routes:
-              - to: default
-                via: 10.0.0.1
-            nameservers:
-              addresses: [1.1.1.1]
-            
-  when: 
-    - netplan_pri_iface.stdout | default('') != ""
-    - netplan_config_file.stdout | default('') != ""
-  register: netplan_route_modify
-
-- name: "[Netplan] 套用設定"
-  ansible.builtin.command: netplan apply
-  when: netplan_route_modify is changed
-
 - name: "[Netplan] 尋找 NAT 網卡名稱 (搜尋 10.0.2.x 網段)"
   ansible.builtin.shell: |
     ip -4 addr show | grep 'inet 10.0.2.' | awk '{print $NF}'
   register: netplan_nat_iface
   changed_when: false
 
-- name: "[Netplan] 尋找 Netplan 設定檔 (通常是 50-cloud-init.yaml 或 00-installer-config.yaml)"
-  ansible.builtin.shell: ls /etc/netplan/*.yaml | head -n 1
-  register: netplan_config_file
-  when: netplan_nat_iface.stdout | default('') != ""
-  changed_when: false
-  ignore_errors: yes
-
-- name: "[Netplan] 備份原始 Netplan 設定檔"
+- name: "[Netplan] 建立自訂路由與 DNS 覆寫檔 (99-custom-routing.yaml)"
+  # 💡 架構師思維：不改原檔，直接新增覆寫檔，避免 YAML 縮排災難
   ansible.builtin.copy:
-    src: "{{ netplan_config_file.stdout }}"
-    dest: "{{ netplan_config_file.stdout }}.bak"
-    remote_src: yes
-  when: 
-    - netplan_config_file.stdout | default('') != ""
-    - netplan_nat_iface.stdout | default('') != ""
-  ignore_errors: yes
+    dest: /etc/netplan/99-custom-routing.yaml
+    content: |
+      network:
+        version: 2
+        ethernets:
+          {{ netplan_pri_iface.stdout }}:
+            routes:
+              - to: 0.0.0.0/0
+                via: {{ lab_gateway }}
+            nameservers:
+              addresses: [{{ lab_dns }}]
+    mode: '0600'
+  when: netplan_pri_iface.stdout | default('') != ""
+  register: netplan_route_file
 
-- name: "[Netplan] 移除 NAT 網卡的 DHCP 設定 (使用 sed 修改)"
-  # 尋找該網卡名稱的區塊，並將 dhcp4 設為 false
-  ansible.builtin.replace:
-    path: "{{ netplan_config_file.stdout }}"
-    regexp: '({{ netplan_nat_iface.stdout }}:\s*\n\s*)dhcp4:\s*(true|yes)'
-    replace: '\1dhcp4: false'
-  when: 
-    - netplan_config_file.stdout | default('') != ""
-    - netplan_nat_iface.stdout | default('') != ""
-  register: netplan_modify
-  ignore_errors: yes
+- name: "[Netplan] 建立 NAT 停用覆寫檔 (98-disable-nat.yaml)"
+  ansible.builtin.copy:
+    dest: /etc/netplan/98-disable-nat.yaml
+    content: |
+      network:
+        version: 2
+        ethernets:
+          {{ netplan_nat_iface.stdout }}:
+            dhcp4: false
+            optional: true
+    mode: '0600'
+  when: netplan_nat_iface.stdout | default('') != ""
+  register: netplan_nat_file
 
 - name: "[Netplan] 套用 Netplan 設定"
   ansible.builtin.command: netplan apply
-  when: netplan_modify is changed
+  when: netplan_route_file is changed or netplan_nat_file is changed
   ignore_errors: yes
 
 - name: "[Netplan] 物理性關閉 NAT 網卡 (ip link set down)"

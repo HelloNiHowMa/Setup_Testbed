@@ -5,69 +5,22 @@
   gather_facts: yes
 
   tasks:
-    # ==========================================
-    # Linux 艦隊處理邏輯 (包含 NetworkManager 封印)
-    # ==========================================
-    - name: 尋找 Linux 上的 NAT 網卡名稱 (搜尋 10.0.2.x 網段)
-      ansible.builtin.shell: |
-        ip -4 addr show | grep 'inet 10.0.2.' | awk '{print $NF}'
-      register: linux_nat_iface
-      when: ansible_os_family != "Windows"
-      changed_when: false
-
-    - name: 尋找 Linux 上的 NAT 網卡 MAC 位址
-      ansible.builtin.shell: |
-        cat /sys/class/net/{{ linux_nat_iface.stdout }}/address
-      register: linux_nat_mac
-      when: 
-        - ansible_os_family != "Windows"
-        - linux_nat_iface.stdout != ""
-      changed_when: false
-
-    - name: 建立 NetworkManager 封印設定檔 (將該 MAC 設為 Unmanaged)
-      ansible.builtin.copy:
-        dest: "/etc/NetworkManager/conf.d/99-unmanaged-vagrant-nat.conf"
-        content: |
-          [keyfile]
-          unmanaged-devices=mac:{{ linux_nat_mac.stdout }}
-        owner: root
-        group: root
-        mode: '0644'
-      when: 
-        - ansible_os_family != "Windows"
-        - linux_nat_mac.stdout != ""
-      # 註冊一個變數，如果檔案有變更，稍後就重載 NM
-      register: nm_conf_status
-      ignore_errors: yes
-
-    - name: 重新載入 NetworkManager 設定 (如果設定檔有更新)
-      ansible.builtin.command: nmcli connection reload
-      when: 
-        - ansible_os_family != "Windows"
-        - nm_conf_status.changed
-      ignore_errors: yes
-
-    - name: 物理性關閉 Linux 的 NAT 網卡 (ip link set down)
-      ansible.builtin.command: "ip link set {{ linux_nat_iface.stdout }} down"
-      when: 
-        - ansible_os_family != "Windows"
-        - linux_nat_iface.stdout != ""
-      ignore_errors: yes
-
-    # ==========================================
-    # Windows 艦隊處理邏輯 (維持不變)
-    # ==========================================
-    - name: 尋找並停用 Windows 上的 NAT 網卡
-      ansible.windows.win_shell: |
-        $natAdapter = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -like "10.0.2.*" }
-        if ($natAdapter) {
-            $ifIndex = $natAdapter.InterfaceIndex
-            Disable-NetAdapter -InterfaceIndex $ifIndex -Confirm:$false
-            Write-Output "Disabled NAT Adapter with Index $ifIndex"
-        } else {
-            Write-Output "No NAT adapter found or already disabled."
-        }
+    - name: 載入 Windows 處理邏輯
+      ansible.builtin.include_tasks: tasks/disable_nat_windows.yml
       when: ansible_os_family == "Windows"
-      register: win_nat_disable
-      changed_when: "'Disabled' in win_nat_disable.stdout"
-      ignore_errors: yes
+
+    - name: 載入 NetworkManager 處理邏輯 (RHEL 系)
+      ansible.builtin.include_tasks: tasks/disable_nat_nm.yml
+      when: ansible_os_family == "RedHat"
+
+    - name: 載入 Netplan 處理邏輯 (新版 Ubuntu)
+      ansible.builtin.include_tasks: tasks/disable_nat_netplan.yml
+      when: 
+        - ansible_distribution == "Ubuntu"
+        - ansible_distribution_major_version | int >= 18
+
+    - name: 載入 Legacy 處理邏輯 (老舊 Ubuntu)
+      ansible.builtin.include_tasks: tasks/disable_nat_legacy.yml
+      when: 
+        - ansible_distribution == "Ubuntu"
+        - ansible_distribution_major_version | int < 18

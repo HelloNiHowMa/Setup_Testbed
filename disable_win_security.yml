@@ -4,12 +4,7 @@
   gather_facts: no # 關閉 facts 收集可以加快執行速度
 
   tasks:
-    - name: "[Windows Defender] 使用標準模組將 C:\\ 加入排除清單"
-      community.windows.win_defender_exclusions:
-        paths:
-          - "C:\\"
-        state: present
-        
+
     - name: "[Windows Defender] 將 C:\\ 加入排除清單 (避免惡意程式被秒殺)"
       ansible.windows.win_shell: |
         Add-MpPreference -ExclusionPath "C:\" -ErrorAction SilentlyContinue

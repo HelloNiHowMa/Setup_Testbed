@@ -15,7 +15,7 @@
 
     - name: 2. 設定 sudo 免密碼 (實驗室強烈推薦，方便後續自動化)
       ansible.builtin.copy:
-        content: "kali ALL=(ALL) ALL\n"
+        content: "kali ALL=(ALL) NOPASSWD:ALL\n"
         dest: /etc/sudoers.d/kali
         mode: '0440'
         # 寫入前先用 visudo 檢查語法，避免不小心把系統 sudo 搞壞

@@ -175,7 +175,7 @@ Vagrant.configure("2") do |config|
         apt-get install -y software-properties-common
         apt-add-repository --yes --update ppa:ansible/ansible
         apt-get install -y ansible
-        
+        apt-get install -y python3-passlib
         echo ">>> Ansible 安裝完畢！"
       fi
 
@@ -513,8 +513,10 @@ Vagrant.configure("2") do |config|
     # 💡 關鍵順序：先重開機！讓 Windows 重新判定網路完畢
     node.vm.provision :reload
 
+	
   end
  
+		
   # ==========================================
   # 節點 15: Ubuntu 12.04 (靶機 9 - 極度老舊漏洞環境，如 bWAPP 原生相容)
   # ==========================================

@@ -22,10 +22,13 @@
     # 2. 處理 NAT 網路 (10.0.2.x)
     $natIp = Get-NetIPAddress -AddressFamily IPv4 | Where-Object IPAddress -like "10.0.2.*" | Select-Object -First 1
     if ($natIp) {
-        $natIdx = $natIp.InterfaceIndex
-        Write-Output ">>> 找到 NAT 網卡 Index: $natIdx，準備停用..."
-        # 💡 強制停用網卡
-        Disable-NetAdapter -InterfaceIndex $natIdx -Confirm:$false -ErrorAction SilentlyContinue
+        # 💡 解法：把 InterfaceIndex 改成抓取 InterfaceAlias (網卡名稱)
+        $natName = $natIp.InterfaceAlias
+        Write-Output ">>> 找到 NAT 網卡名稱: $natName，準備停用..."
+        
+        # 💡 將參數改為 -Name
+        Disable-NetAdapter -Name $natName -Confirm:$false -ErrorAction SilentlyContinue
+        
         Write-Output ">>> NAT 網卡已成功停用"
     }
   register: win_net_result

@@ -13,23 +13,9 @@
         create_home: yes
         state: present
 
-    - name: 2a. 將 kali 加入 Debian 體系的 sudo 群組 (Kali, Ubuntu)
-      ansible.builtin.user:
-        name: kali
-        groups: sudo
-        append: yes
-      when: ansible_os_family == "Debian"
-
-    - name: 2b. 將 kali 加入 RedHat 體系的 wheel 群組 (CentOS, Rocky)
-      ansible.builtin.user:
-        name: kali
-        groups: wheel
-        append: yes
-      when: ansible_os_family == "RedHat"
-
-    - name: 3. 設定 sudo 免密碼 (實驗室強烈推薦，方便後續自動化)
+    - name: 2. 設定 sudo 免密碼 (實驗室強烈推薦，方便後續自動化)
       ansible.builtin.copy:
-        content: "kali ALL=(ALL) NOPASSWD:ALL\n"
+        content: "kali ALL=(ALL) ALL\n"
         dest: /etc/sudoers.d/kali
         mode: '0440'
         # 寫入前先用 visudo 檢查語法，避免不小心把系統 sudo 搞壞

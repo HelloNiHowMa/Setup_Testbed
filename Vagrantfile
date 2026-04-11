@@ -93,7 +93,7 @@ Vagrant.configure("2") do |config|
       vb.name = "Testbed_Kali"
       vb.memory = "2048"
       vb.cpus = 2
-      vb.gui = true
+      vb.gui = false
 	  #設定這只有這台是Link Clone
 	  #vb.linked_clone = true 
     end
@@ -227,7 +227,7 @@ Vagrant.configure("2") do |config|
       vb.name = "Testbed_CentOS9"
       vb.memory = "1024"
       vb.cpus = 1
-      vb.gui = true
+      vb.gui = false
     end
 	
   end
@@ -307,7 +307,7 @@ Vagrant.configure("2") do |config|
       vb.name = "Testbed_Win10"
       vb.memory = "4096" # Windows 至少需要 4GB 記憶體才會順
       vb.cpus = 2
-      vb.gui = true      # Windows 強烈建議開啟 GUI
+      vb.gui = false
     end
 	
     # 第一階段：改名與斬斷視窗
@@ -318,28 +318,12 @@ Vagrant.configure("2") do |config|
           New-Item -Path $regPath -Force | Out-Null
       }
       Write-Host ">>> [System] Renaming computer to win10-alone-238..."
-      Rename-Computer -NewName win10-alone-238 -Force
+      Rename-Computer -NewName win10-alone-238 -Force -ErrorAction SilentlyContinue
+
     SHELL
 
-    # 💡 關鍵順序：先重開機！讓 Windows 重新判定網路完畢
+    #  關鍵順序：先重開機！讓 Windows 重新判定網路完畢
     node.vm.provision :reload
-
-    # 💡 關鍵順序：重開機回來後，再執行第二階段的「終極解武裝」
-    node.vm.provision "shell", inline: <<-'SHELL'
-    #  Write-Host ">>> [System] Setting network category to Private..."
-    #  Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private -ErrorAction SilentlyContinue
-      
-    #  Write-Host ">>> [System] Disabling Windows Firewall via netsh..."
-      # 使用 netsh 是關閉防火牆最鐵腕的作法，比 PowerShell 模組更不容易被防毒攔截
-    #  netsh advfirewall set allprofiles state off
-      
-      Write-Host ">>> [System] Disabling Windows Defender..."
-      Add-MpPreference -ExclusionPath "C:\" -ErrorAction SilentlyContinue
-	#無效  
-	#  Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
-    #  Set-MpPreference -DisableBehaviorMonitoring $true -ErrorAction SilentlyContinue
-
-    SHELL
  
   end
 
@@ -355,7 +339,7 @@ Vagrant.configure("2") do |config|
       vb.name = "Testbed_Win11"
       vb.memory = "4096"
       vb.cpus = 2
-      vb.gui = true
+      vb.gui = false
     end
 	
     # 第一階段：改名與斬斷視窗
@@ -371,24 +355,6 @@ Vagrant.configure("2") do |config|
 
     # 💡 關鍵順序：先重開機！讓 Windows 重新判定網路完畢
     node.vm.provision :reload
-
-    # 💡 關鍵順序：重開機回來後，再執行第二階段的「終極解武裝」
-    node.vm.provision "shell", inline: <<-'SHELL'
-    #  Write-Host ">>> [System] Setting network category to Private..."
-    #  Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private -ErrorAction SilentlyContinue
-      
-    #  Write-Host ">>> [System] Disabling Windows Firewall via netsh..."
-      # 使用 netsh 是關閉防火牆最鐵腕的作法，比 PowerShell 模組更不容易被防毒攔截
-    #  netsh advfirewall set allprofiles state off
-      
-      Write-Host ">>> [System] Disabling Windows Defender..."
-      Add-MpPreference -ExclusionPath "C:\" -ErrorAction SilentlyContinue
-	#無效  
-	#  Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
-    #  Set-MpPreference -DisableBehaviorMonitoring $true -ErrorAction SilentlyContinue
-
-    SHELL
- 
   
   end
 
@@ -397,7 +363,7 @@ Vagrant.configure("2") do |config|
   # ==========================================
   config.vm.define "win2022_dc", autostart: START_WINDOWS do |node|
     node.vm.box = "gusztavvargadr/windows-server-2022-standard"
-    node.vm.hostname = "DC1-201"
+    #node.vm.hostname = "DC1-201"
     # 💡 直接在 public_network 指定固定 IP，並橋接到 Wi-Fi 網卡
     node.vm.network "public_network", ip: "#{IP_PREFIX}201", bridge: "Intel(R) Wi-Fi 6E AX211 160MHz"
     
@@ -405,8 +371,22 @@ Vagrant.configure("2") do |config|
       vb.name = "Testbed_Win2022_DC1"
       vb.memory = "4096"
       vb.cpus = 2
-      vb.gui = true
+      vb.gui = false
     end
+			# 第一階段：改名與斬斷視窗
+    node.vm.provision "shell", inline: <<-'SHELL'
+      Write-Host ">>> [System] Disabling Network Discovery popup..."
+	  $regPath = "HKLM:\System\CurrentControlSet\Control\Network\NewNetworkWindowOff"
+      if (!(Test-Path $regPath)) {
+          New-Item -Path $regPath -Force | Out-Null
+      }
+      Write-Host ">>> [System] Renaming computer to DC1-201..."
+      Rename-Computer -NewName DC1-201 -Force
+    SHELL
+
+    # 💡 關鍵順序：先重開機！讓 Windows 重新判定網路完畢
+    node.vm.provision :reload
+
   end
 
   # ==========================================
@@ -414,15 +394,30 @@ Vagrant.configure("2") do |config|
   # ==========================================
   config.vm.define "win2022_srv1", autostart: START_WINDOWS do |node|
     node.vm.box = "gusztavvargadr/windows-server-2022-standard"
-    node.vm.hostname = "SRV1-202"
+    #node.vm.hostname = "SRV1-202"
     node.vm.network "public_network", ip: "#{IP_PREFIX}202", bridge: "Intel(R) Wi-Fi 6E AX211 160MHz"
     
     node.vm.provider "virtualbox" do |vb|
       vb.name = "Testbed_Win2022_SRV1"
       vb.memory = "4096"
       vb.cpus = 2
-      vb.gui = true
+      vb.gui = false
     end
+	
+		# 第一階段：改名與斬斷視窗
+    node.vm.provision "shell", inline: <<-'SHELL'
+      Write-Host ">>> [System] Disabling Network Discovery popup..."
+	  $regPath = "HKLM:\System\CurrentControlSet\Control\Network\NewNetworkWindowOff"
+      if (!(Test-Path $regPath)) {
+          New-Item -Path $regPath -Force | Out-Null
+      }
+      Write-Host ">>> [System] Renaming computer to SRV1-202..."
+      Rename-Computer -NewName SRV1-202 -Force
+    SHELL
+
+    # 💡 關鍵順序：先重開機！讓 Windows 重新判定網路完畢
+    node.vm.provision :reload
+	
   end
 
   # ==========================================
@@ -430,15 +425,30 @@ Vagrant.configure("2") do |config|
   # ==========================================
   config.vm.define "win2022_srv2", autostart: START_WINDOWS do |node|
     node.vm.box = "gusztavvargadr/windows-server-2022-standard"
-    node.vm.hostname = "SRV2-203"
+    #node.vm.hostname = "SRV2-203"
     node.vm.network "public_network", ip: "#{IP_PREFIX}203", bridge: "Intel(R) Wi-Fi 6E AX211 160MHz"
     
     node.vm.provider "virtualbox" do |vb|
       vb.name = "Testbed_Win2022_SRV2"
       vb.memory = "4096"
       vb.cpus = 2
-      vb.gui = true
+      vb.gui = false
     end
+	
+	# 第一階段：改名與斬斷視窗
+    node.vm.provision "shell", inline: <<-'SHELL'
+      Write-Host ">>> [System] Disabling Network Discovery popup..."
+	  $regPath = "HKLM:\System\CurrentControlSet\Control\Network\NewNetworkWindowOff"
+      if (!(Test-Path $regPath)) {
+          New-Item -Path $regPath -Force | Out-Null
+      }
+      Write-Host ">>> [System] Renaming computer to SRV2-203..."
+      Rename-Computer -NewName SRV2-203 -Force
+    SHELL
+
+    # 💡 關鍵順序：先重開機！讓 Windows 重新判定網路完畢
+    node.vm.provision :reload
+	
   end
 
   # ==========================================
@@ -446,16 +456,31 @@ Vagrant.configure("2") do |config|
   # ==========================================
   config.vm.define "win10_dc_client", autostart: START_WINDOWS do |node|
     node.vm.box = "gusztavvargadr/windows-10"
-    node.vm.hostname = "win10-dc-client-210"
+    #node.vm.hostname = "win10-dc-client-210"
     # 指定固定 IP 為 10.0.0.210
     node.vm.network "public_network", ip: "#{IP_PREFIX}210", bridge: "Intel(R) Wi-Fi 6E AX211 160MHz"
     
     node.vm.provider "virtualbox" do |vb|
-      vb.name = "Testbed_Win10_2"
+      vb.name = "Testbed_Win10_dc_client"
       vb.memory = "4096"
       vb.cpus = 2
-      vb.gui = true
+      vb.gui = false
     end
+	
+	# 第一階段：改名與斬斷視窗
+    node.vm.provision "shell", inline: <<-'SHELL'
+      Write-Host ">>> [System] Disabling Network Discovery popup..."
+	  $regPath = "HKLM:\System\CurrentControlSet\Control\Network\NewNetworkWindowOff"
+      if (!(Test-Path $regPath)) {
+          New-Item -Path $regPath -Force | Out-Null
+      }
+      Write-Host ">>> [System] Renaming computer to win10-dc-210..."
+      Rename-Computer -NewName win10-dc-210 -Force
+    SHELL
+
+    # 💡 關鍵順序：先重開機！讓 Windows 重新判定網路完畢
+    node.vm.provision :reload
+
   end
 
   # ==========================================
@@ -463,19 +488,33 @@ Vagrant.configure("2") do |config|
   # ==========================================
   config.vm.define "win11_dc_client", autostart: START_WINDOWS do |node|
     node.vm.box = "gusztavvargadr/windows-11"
-    node.vm.hostname = "win11-dc-client-211"
+    #node.vm.hostname = "win11-dc-client-211"
     # 指定固定 IP 為 10.0.0.211
     node.vm.network "public_network", ip: "#{IP_PREFIX}211", bridge: "Intel(R) Wi-Fi 6E AX211 160MHz"
     
     node.vm.provider "virtualbox" do |vb|
-      vb.name = "Testbed_Win11_2"
+      vb.name = "Testbed_Win11_dc_client"
       vb.memory = "4096"
       vb.cpus = 2
-      vb.gui = true
+      vb.gui = false
     end
+	
+	# 第一階段：改名與斬斷視窗
+    node.vm.provision "shell", inline: <<-'SHELL'
+      Write-Host ">>> [System] Disabling Network Discovery popup..."
+	  $regPath = "HKLM:\System\CurrentControlSet\Control\Network\NewNetworkWindowOff"
+      if (!(Test-Path $regPath)) {
+          New-Item -Path $regPath -Force | Out-Null
+      }
+      Write-Host ">>> [System] Renaming computer to win11-dc-211..."
+      Rename-Computer -NewName win11-dc-211 -Force
+    SHELL
+
+    # 💡 關鍵順序：先重開機！讓 Windows 重新判定網路完畢
+    node.vm.provision :reload
+
   end
  
-		
   # ==========================================
   # 節點 15: Ubuntu 12.04 (靶機 9 - 極度老舊漏洞環境，如 bWAPP 原生相容)
   # ==========================================

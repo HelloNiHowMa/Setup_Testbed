@@ -1,6 +1,6 @@
 ---
 - name: 為實驗室所有 Linux 靶機建立超級使用者
-  hosts: all
+  hosts: attacker
   become: yes  # 啟用提權 (相當於 sudo)，因為建帳號需要 root 權限
 
   tasks:

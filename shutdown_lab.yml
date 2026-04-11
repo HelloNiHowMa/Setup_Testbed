@@ -1,28 +1,41 @@
 ---
-# 第一階段：先處理所有受控機器，但排除控制機自己
-- name: 1. 關閉所有受控機 (排除控制節點)
-  hosts: all:!ansible_control
+# ==========================================================
+# 第一階段：關閉 Linux 艦隊 (包含極度老舊的 Ubuntu 12/14)
+# ==========================================================
+- name: 1. 關閉所有 Linux 受控機
+  # 💡 建議在 inventory.ini 中將所有 Linux 機器設為 [linux] 群組
+  hosts: linux:!ansible_control
   become: yes
-  gather_facts: yes
+  gather_facts: no  # 絕對不能開！否則老機器會崩潰
   tasks:
-    - name: 通知 Linux 艦隊關機
-      ansible.builtin.shell: sleep 2 && shutdown -h now
-      async: 1
-      poll: 0
-      when: ansible_os_family != "Windows"
+    - name: 通知 Linux 艦隊關機 (使用 raw 模組繞過 Python 限制)
+      # raw 模組不支援 async，所以我們直接下達關機指令
+      # 關機會導致 SSH 瞬間斷線，Ansible 會報錯，所以我們用 ignore_errors 忽略它
+      ansible.builtin.raw: shutdown -h now
       ignore_errors: yes
+      ignore_unreachable: yes
 
+# ==========================================================
+# 第二階段：關閉 Windows 艦隊
+# ==========================================================
+- name: 2. 關閉所有 Windows 受控機
+  # 💡 建議在 inventory.ini 中將所有 Windows 機器設為 [windows] 群組
+  hosts: windows
+  gather_facts: no
+  tasks:
     - name: 通知 Windows 艦隊關機
       ansible.windows.win_shell: Start-Sleep -Seconds 2; Stop-Computer -Force
       async: 1
       poll: 0
-      when: ansible_os_family == "Windows"
       ignore_errors: yes
 
-# 第二階段：確認大家都收到通知後，控制機再自盡
-- name: 2. 最後關閉控制節點自己
+# ==========================================================
+# 第三階段：控制機自盡
+# ==========================================================
+- name: 3. 最後關閉控制節點自己
   hosts: ansible_control
   become: yes
+  gather_facts: no
   tasks:
     - name: 執行控制機關機指令
       ansible.builtin.shell: sleep 5 && shutdown -h now

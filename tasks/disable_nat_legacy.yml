@@ -1,26 +1,28 @@
 ---
 # tasks/disable_nat_legacy.yml
-- name: "[Legacy] 使用 raw 模組設定路由、DNS 並封印 NAT (無斷線升級版)"
+- name: "[Legacy] 使用 raw 模組設定路由與 DNS (解決路由表衝突問題)"
   ansible.builtin.raw: |
-    # 1. 處理私有網路 (10.0.0.x)
-    PRI_IFACE=$(ip -4 addr show | grep 'inet 10.0.0.' | awk '{print $NF}')
-    if [ ! -z "$PRI_IFACE" ]; then
-      # 檢查是否已存在閘道設定，避免重複寫入
-      if ! grep -q "gateway {{ lab_gateway }}" /etc/network/interfaces; then
-        sed -i "/iface $PRI_IFACE inet static/a \    gateway {{ lab_gateway }}\n    dns-nameservers {{ lab_dns }}" /etc/network/interfaces
-        
-        # 💡 無中斷動態套用：直接使用 ip route 指令塞入記憶體，不重啟網卡
-        ip route add default via {{ lab_gateway }} 2>/dev/null || true
-        # 💡 強制修改 DNS 解析檔
-        echo "nameserver {{ lab_dns }}" > /etc/resolv.conf
-      fi
-    fi
-
-    # 2. 處理 NAT 網路 (10.0.2.x)
-    NAT_IFACE=$(ip -4 addr show | grep 'inet 10.0.2.' | awk '{print $NF}')
+    # 💡 順序調換：第一步，先無情斬斷 NAT 網路 (eth0)，清除舊的預設路由
+    NAT_IFACE=$(/sbin/ip -4 addr show | grep 'inet 10.0.2.' | awk '{print $NF}')
     if [ ! -z "$NAT_IFACE" ]; then
       sed -i -e "s/^auto $NAT_IFACE/#auto $NAT_IFACE/g" -e "s/^iface $NAT_IFACE/#iface $NAT_IFACE/g" /etc/network/interfaces
       ifdown $NAT_IFACE 2>/dev/null || true
-      ip link set $NAT_IFACE down 2>/dev/null || true
+      /sbin/ip link set $NAT_IFACE down 2>/dev/null || true
+    fi
+
+    # 💡 第二步，處理私有網路 (eth1)。此時舊路由已死，空間騰出來了！
+    PRI_IFACE=$(/sbin/ip -4 addr show | grep 'inet 10.0.0.' | awk '{print $NF}')
+    if [ ! -z "$PRI_IFACE" ]; then
+      # 檢查設定檔，沒寫過才寫入
+      if ! grep -q "gateway {{ lab_gateway }}" /etc/network/interfaces; then
+        sed -i "/iface $PRI_IFACE inet static/a \    gateway {{ lab_gateway }}" /etc/network/interfaces
+        sed -i "/gateway {{ lab_gateway }}/a \    dns-nameservers {{ lab_dns }}" /etc/network/interfaces
+      fi
+      
+      # 💡 殺招：使用 replace 強制覆寫記憶體中的預設路由，確保 100% 成功
+      /sbin/ip route replace default via {{ lab_gateway }} 2>/dev/null || true
+      
+      # 強制更新 DNS 解析檔
+      echo "nameserver {{ lab_dns }}" > /etc/resolv.conf
     fi
   register: raw_legacy_result

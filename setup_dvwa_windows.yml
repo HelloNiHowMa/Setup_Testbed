@@ -1,7 +1,6 @@
 ---
 - name: 在多台 Windows 靶機上部署 XAMPP 與 DVWA
-  # 💡 直接指定你要部署的三台機器
-  hosts: win2022_srv1, win10_dc_client, win11_dc_client
+  hosts: Windows
   gather_facts: no
   vars:
     xampp_dir: "C:\\xampp"

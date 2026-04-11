@@ -30,16 +30,15 @@
         cd C:\xampp
         .\setup_xampp.bat
 
-    - name: 3. 註冊並啟動 Apache 與 MySQL 服務
-      # XAMPP 預設不會將它們註冊為背景服務，我們透過它內建的腳本來處理
+    - name: 3. 強制註冊並啟動 Apache 與 MySQL 服務 (底層二進位檔直連)
       ansible.windows.win_shell: |
-        cd C:\xampp\apache
-        .\apache_installservice.bat
-        Start-Service -Name "Apache2.4"
+        # 1. 呼叫 Apache 底層執行檔註冊服務 (-k install)
+        C:\xampp\apache\bin\httpd.exe -k install -n "Apache2.4"
+        Start-Service -Name "Apache2.4" -ErrorAction SilentlyContinue
         
-        cd C:\xampp\mysql
-        .\mysql_installservice.bat
-        Start-Service -Name "mysql"
+        # 2. 呼叫 MySQL 底層執行檔註冊服務 (--install)
+        C:\xampp\mysql\bin\mysqld.exe --install "mysql"
+        Start-Service -Name "mysql" -ErrorAction SilentlyContinue
       ignore_errors: yes
 
     - name: 4. 確保 Apache 與 MySQL 服務為啟動狀態

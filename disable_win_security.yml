@@ -1,7 +1,7 @@
 ---
 - name: "全面解除 Windows 靶機武裝 (防火牆與防毒)"
   # 💡 請確保你的 inventory.ini 裡面有一個 [windows] 群組包含所有 Windows 節點
-  hosts: windows 
+  hosts: Windows 
   gather_facts: no # 關閉 facts 收集可以加快執行速度
 
   tasks:

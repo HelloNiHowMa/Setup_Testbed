@@ -589,4 +589,64 @@ Vagrant.configure("2") do |config|
       vb.gui = false
     end
   end
+  # ==========================================
+  # 節點 17: Metasploitable3 - Ubuntu 14.04 (經典漏洞大補帖 Linux)
+  # ==========================================
+  config.vm.define "ms3_ub1404" do |node|
+    node.vm.box = "rapid7/metasploitable3-ub1404"
+    node.vm.hostname = "metasploitable3-ub1404"
+    
+    # 預設帳密設定 (MS3 的傳統)
+    config.ssh.username = 'vagrant'
+    config.ssh.password = 'vagrant'
+
+    # 融入實驗室網段，指派 IP 結尾為 242
+    node.vm.network "public_network", ip: "#{IP_PREFIX}242", bridge: "Intel(R) Wi-Fi 6E AX211 160MHz"
+
+    node.vm.provider "virtualbox" do |vb|
+      vb.name = "Testbed_MS3_Ubuntu1404"
+      vb.memory = "2048"
+      vb.cpus = 2
+      vb.gui = false
+    end
+  end
+
+  # ==========================================
+  # 節點 18: Metasploitable3 - Windows Server 2008 (經典漏洞大補帖 Windows)
+  # ==========================================
+  # 💡 套用 START_WINDOWS 變數控制是否啟動
+  config.vm.define "ms3_win2k8", autostart: START_WINDOWS do |node|
+    node.vm.box = "rapid7/metasploitable3-win2k8"
+    node.vm.hostname = "metasploitable3-win2k8"
+    
+    # WinRM 通訊設定
+    node.vm.communicator = "winrm"
+    node.winrm.retry_limit = 60
+    node.winrm.retry_delay = 10
+
+    # 融入實驗室網段，指派 IP 結尾為 243
+    node.vm.network "public_network", ip: "#{IP_PREFIX}243", bridge: "Intel(R) Wi-Fi 6E AX211 160MHz"
+
+    # 💡 轉換為 VirtualBox 語法 (原先為 libvirt)
+    node.vm.provider "virtualbox" do |vb|
+      vb.name = "Testbed_MS3_Win2008"
+      vb.memory = "4096"
+      vb.cpus = 2
+      vb.gui = false
+    end
+
+    # 配置防火牆以開放漏洞服務 (保留原 MS3 官方邏輯)
+    case ENV['MS3_DIFFICULTY']
+      when 'easy'
+        node.vm.provision :shell, inline: "C:\\startup\\disable_firewall.bat"
+      else
+        node.vm.provision :shell, inline: "C:\\startup\\enable_firewall.bat"
+        node.vm.provision :shell, inline: "C:\\startup\\configure_firewall.bat"
+    end
+
+    # 執行 MS3 內部預寫好的啟動腳本與清理作業
+    node.vm.provision :shell, inline: "C:\\startup\\install_share_autorun.bat"
+    node.vm.provision :shell, inline: "C:\\startup\\setup_linux_share.bat"
+    #node.vm.provision :shell, inline: "rm C:\\startup\\*" 
+  end
 end

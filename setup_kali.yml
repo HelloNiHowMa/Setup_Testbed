@@ -34,25 +34,6 @@
       args:
         creates: /usr/share/wordlists/rockyou.txt
 
-    - name: 移除螢幕保護與鎖定程式 (防止 GUI 閒置時自動鎖定)
-      become: yes
-      ansible.builtin.apt:
-        name:
-          - xfce4-screensaver
-          - light-locker
-        state: absent
-
-    - name: 停用系統休眠與睡眠模式 (確保長時間測試與連線不中斷)
-      become: yes
-      ansible.builtin.systemd:
-        name: "{{ item }}"
-        masked: yes
-      loop:
-        - sleep.target
-        - suspend.target
-        - hibernate.target
-        - hybrid-sleep.target
-
     # ==========================================
     # 階段三：使用者層級任務 (kali 本人執行)
     # ==========================================
@@ -76,3 +57,45 @@
     - name: 將 Git 預設編輯器改為 vim
       ansible.builtin.command:
         cmd: git config --global core.editor "vim"
+
+# ==========================================
+    # 階段三：使用者層級任務 (kali 本人執行)
+    # ==========================================
+    # (保留你原本的 ~/.vimrc 和 git config 任務)
+
+    - name: 確保 XFCE 設定檔目錄存在
+      ansible.builtin.file:
+        path: ~/.config/xfce4/xfconf/xfce-perchannel-xml/
+        state: directory
+        mode: '0755'
+
+    - name: 停用 XFCE 螢幕保護與自動鎖定 (xfce4-screensaver)
+      ansible.builtin.copy:
+        dest: ~/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-screensaver.xml
+        mode: '0644'
+        content: |
+          <?xml version="1.0" encoding="UTF-8"?>
+          <channel name="xfce4-screensaver" version="1.0">
+            <property name="saver" type="empty">
+              <property name="enabled" type="bool" value="false"/>
+            </property>
+            <property name="lock" type="empty">
+              <property name="enabled" type="bool" value="false"/>
+            </property>
+          </channel>
+
+    - name: 停用 XFCE 電源管理的螢幕休眠 (xfce4-power-manager)
+      ansible.builtin.copy:
+        dest: ~/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-power-manager.xml
+        mode: '0644'
+        content: |
+          <?xml version="1.0" encoding="UTF-8"?>
+          <channel name="xfce4-power-manager" version="1.0">
+            <property name="xfce4-power-manager" type="empty">
+              <property name="dpms-enabled" type="bool" value="false"/>
+              <property name="blank-on-ac" type="int" value="0"/>
+              <property name="dpms-on-ac-sleep" type="int" value="0"/>
+              <property name="dpms-on-ac-off" type="int" value="0"/>
+              <property name="lock-screen-suspend-hibernate" type="bool" value="false"/>
+            </property>
+          </channel>
